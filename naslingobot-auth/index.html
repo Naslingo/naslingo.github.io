@@ -21,7 +21,7 @@
     const redirect_uri = "https://naslingo.github.io/naslingobot-auth";
     const github_token = "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";
 
-    let code_verifier = "";
+    let code_verifier = localStorage.getItem("code_verifier") || "";
 
     function generateCodeVerifier() {
       const array = new Uint8Array(64);
@@ -38,6 +38,7 @@
 
     async function startAuth() {
       code_verifier = generateCodeVerifier();
+      localStorage.setItem("code_verifier", code_verifier);
       const code_challenge = await generateCodeChallenge(code_verifier);
       const params = new URLSearchParams({
         response_type: "code",
