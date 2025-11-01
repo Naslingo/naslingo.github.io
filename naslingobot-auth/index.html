@@ -13,7 +13,7 @@
 </head>
 <body>
   <h1>NaslingoBot Auth</h1>
-  <button onclick="startAuth()">Iniciar sesión con Spotify</button>
+  <button id="authButton">Iniciar sesión con Spotify</button>
   <div id="output"></div>
 
   <script>
@@ -98,6 +98,7 @@
       }
     }
 
+    document.getElementById("authButton").addEventListener("click", startAuth);
     handleRedirect();
   </script>
 </body>
