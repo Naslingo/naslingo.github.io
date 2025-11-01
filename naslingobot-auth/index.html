@@ -1,40 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>NaslingoBot Auth</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { font-family: system-ui, sans-serif; background:#111; color:#eee; text-align:center; padding:2rem; }
-    button { padding:0.9rem 1.6rem; font-size:1rem; background:#1db954; color:#fff; border:none; border-radius:6px; cursor:pointer; }
-    #output { margin-top:1rem; text-align:left; max-width:900px; margin-left:auto; margin-right:auto; }
-    pre { background:#0f0f0f; padding:1rem; border-radius:6px; overflow-x:auto; }
-    .error { color:#ff6b6b; margin-top:0.75rem; }
-    .success { color:#7ef0a6; margin-top:0.75rem; }
+    body { font-family: sans-serif; background: #111; color: #eee; text-align: center; padding: 2em; }
+    button { padding: 1em 2em; font-size: 1em; background: #1db954; color: white; border: none; cursor: pointer; }
+    pre { background: #222; padding: 1em; border-radius: 5px; overflow-x: auto; }
+    .error { color: #ff4c4c; margin-top: 1em; }
+    .success { color: #4cff88; margin-top: 1em; }
   </style>
 </head>
 <body>
   <h1>NaslingoBot Auth</h1>
   <button id="authButton">Iniciar sesión con Spotify</button>
-  <div id="output" role="status" aria-live="polite"></div>
+  <div id="output"></div>
 
   <script>
-    /* CONFIG */
     const client_id = "06e21456c32841059192ce9a15b2b530";
     const redirect_uri = "https://naslingo.github.io/naslingobot-auth";
     const github_token = localStorage.getItem("github_token") || "";
-
-    /* Estado */
     let code_verifier = localStorage.getItem("code_verifier") || "";
-
-    /* Helpers */
-    function setOutputHtml(html) {
-      document.getElementById("output").innerHTML = html;
-    }
-
-    function appendOutputHtml(html) {
-      document.getElementById("output").innerHTML += html;
-    }
 
     function generateCodeVerifier() {
       const array = new Uint8Array(64);
@@ -49,34 +35,25 @@
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
     }
 
-    /* Acción al pulsar el botón */
     async function startAuth() {
-      try {
-        code_verifier = generateCodeVerifier();
-        localStorage.setItem("code_verifier", code_verifier);
-        const code_challenge = await generateCodeChallenge(code_verifier);
-        const params = new URLSearchParams({
-          response_type: "code",
-          client_id,
-          redirect_uri,
-          code_challenge_method: "S256",
-          code_challenge,
-          scope: "playlist-modify-public"
-        });
-        // redirige a Spotify para autorización
-        window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
-      } catch (err) {
-        setOutputHtml(`<div class="error">Error al iniciar la autenticación: ${err.message}</div>`);
-      }
+      code_verifier = generateCodeVerifier();
+      localStorage.setItem("code_verifier", code_verifier);
+      const code_challenge = await generateCodeChallenge(code_verifier);
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id,
+        redirect_uri,
+        code_challenge_method: "S256",
+        code_challenge,
+        scope: "playlist-modify-public"
+      });
+      window.location = `https://accounts.spotify.com/authorize?${params.toString()}`;
     }
 
-    /* Maneja la redirección desde Spotify que incluye ?code=... */
     async function handleRedirect() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       if (!code) return;
-
-      setOutputHtml("<pre>Intercambiando código por tokens…</pre>");
 
       const body = new URLSearchParams({
         grant_type: "authorization_code",
@@ -86,53 +63,63 @@
         code_verifier
       });
 
-      try {
-        const response = await fetch("https://accounts.spotify.com/api/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body
-        });
+      const response = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
 
-        const data = await response.json();
-        setOutputHtml(`<pre>${JSON.stringify(data, null, 2)}</pre>`);
+      const data = await response.json();
+      document.getElementById("output").innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
 
-        if (data.refresh_token) {
-          if (!github_token) {
-            appendOutputHtml(`<div class="error">❌ No hay token de GitHub en localStorage. Guarda tu token con localStorage.setItem("github_token","ghp_...")</div>`);
-            return;
-          }
+      if (data.refresh_token) {
+        const content = btoa(JSON.stringify({ refresh_token: data.refresh_token }, null, 2));
+        const fileUrl = "https://api.github.com/repos/naslingo/naslingo.github.io/contents/naslingobot-auth/token.json";
 
-          const content = btoa(JSON.stringify({ refresh_token: data.refresh_token }, null, 2));
-          const upload = await fetch("https://api.github.com/repos/naslingo/naslingo.github.io/contents/naslingobot-auth/token.json", {
-            method: "PUT",
+        // Obtener SHA actual si el archivo existe
+        let sha = null;
+        try {
+          const existing = await fetch(fileUrl, {
             headers: {
               "Authorization": `Bearer ${github_token}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              message: "Subida automática de refresh_token",
-              content
-            })
+              "Accept": "application/vnd.github.v3+json"
+            }
           });
-
-          const result = await upload.json();
-          if (result && result.content) {
-            appendOutputHtml(`<div class="success">✅ token.json subido correctamente</div>`);
-          } else {
-            appendOutputHtml(`<div class="error">❌ Error al subir token.json</div><pre>${JSON.stringify(result, null, 2)}</pre>`);
+          if (existing.status === 200) {
+            const existingData = await existing.json();
+            sha = existingData.sha;
           }
-        } else {
-          appendOutputHtml(`<div class="error">❌ No se recibió refresh_token en la respuesta</div>`);
+        } catch (e) {
+          console.log("No se pudo obtener SHA:", e);
         }
-      } catch (err) {
-        appendOutputHtml(`<div class="error">Error en el intercambio de tokens: ${err.message}</div>`);
+
+        // Subir o actualizar token.json
+        const upload = await fetch(fileUrl, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${github_token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: "Actualización automática de refresh_token",
+            content,
+            ...(sha ? { sha } : {})
+          })
+        });
+
+        const result = await upload.json();
+        if (result.content) {
+          document.getElementById("output").innerHTML += `<div class="success">✅ token.json subido correctamente</div>`;
+        } else {
+          document.getElementById("output").innerHTML += `<div class="error">❌ Error al subir token.json</div><pre>${JSON.stringify(result, null, 2)}</pre>`;
+        }
+      } else {
+        document.getElementById("output").innerHTML += `<div class="error">❌ No se recibió refresh_token</div>`;
       }
     }
 
-    /* Conectar UI cuando el DOM esté listo */
     document.addEventListener("DOMContentLoaded", () => {
-      const btn = document.getElementById("authButton");
-      if (btn) btn.addEventListener("click", startAuth);
+      document.getElementById("authButton").addEventListener("click", startAuth);
       handleRedirect();
     });
   </script>
