@@ -19,7 +19,7 @@
   <script>
     const client_id = "06e21456c32841059192ce9a15b2b530";
     const redirect_uri = "https://naslingo.github.io/naslingobot-auth";
-    const github_token = "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";
+    const github_token = "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";
 
     let code_verifier = localStorage.getItem("code_verifier") || "";
 
@@ -66,39 +66,3 @@
 
       const response = await fetch("https://accounts.spotify.com/api/token", {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      });
-
-      const data = await response.json();
-      document.getElementById("output").innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-
-      if (data.refresh_token) {
-        const content = btoa(JSON.stringify({ refresh_token: data.refresh_token }, null, 2));
-        const upload = await fetch("https://api.github.com/repos/naslingo/naslingo.github.io/contents/naslingobot-auth/token.json", {
-          method: "PUT",
-          headers: {
-            "Authorization": `Bearer ${github_token}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            message: "Subida automática de refresh_token",
-            content
-          })
-        });
-
-        const result = await upload.json();
-        if (result.content) {
-          document.getElementById("output").innerHTML += `<div class="success">✅ token.json subido correctamente</div>`;
-        } else {
-          document.getElementById("output").innerHTML += `<div class="error">❌ Error al subir token.json</div><pre>${JSON.stringify(result, null, 2)}</pre>`;
-        }
-      } else {
-        document.getElementById("output").innerHTML += `<div class="error">❌ No se recibió refresh_token</div>`;
-      }
-    }
-
-    handleRedirect();
-  </script>
-</body>
-</html>
