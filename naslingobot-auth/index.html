@@ -98,8 +98,11 @@
       }
     }
 
-    document.getElementById("authButton").addEventListener("click", startAuth);
-    handleRedirect();
+    // ✅ Conectar el botón después de definir la función
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("authButton").addEventListener("click", startAuth);
+      handleRedirect();
+    });
   </script>
 </body>
 </html>
