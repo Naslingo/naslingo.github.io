@@ -77,3 +77,52 @@
         const fileUrl = "https://api.github.com/repos/naslingo/naslingo.github.io/contents/naslingobot-auth/token.json";
 
         // Obtener SHA actual si el archivo existe
+        let sha = null;
+        try {
+          const existing = await fetch(fileUrl, {
+            headers: {
+              "Authorization": `Bearer ${github_token}`,
+              "Accept": "application/vnd.github.v3+json"
+            }
+          });
+          if (existing.status === 200) {
+            const existingData = await existing.json();
+            sha = existingData.sha;
+          }
+        } catch (e) {
+          console.log("No se pudo obtener SHA:", e);
+        }
+
+        // Subir o actualizar token.json
+        const upload = await fetch(fileUrl, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${github_token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: "Actualización automática de refresh_token",
+            content,
+            ...(sha ? { sha } : {})
+          })
+        });
+
+        const result = await upload.json();
+        if (result.content) {
+          document.getElementById("output").innerHTML += `<div class="success">✅ token.json subido correctamente</div>`;
+        } else {
+          document.getElementById("output").innerHTML += `<div class="error">❌ Error al subir token.json</div><pre>${JSON.stringify(result, null, 2)}</pre>`;
+        }
+      } else {
+        document.getElementById("output").innerHTML += `<div class="error">❌ No se recibió refresh_token</div>`;
+      }
+    }
+
+    // Activar el botón y el flujo cuando todo esté cargado
+    window.onload = () => {
+      document.getElementById("authButton").addEventListener("click", startAuth);
+      handleRedirect();
+    };
+  </script>
+</body>
+</html>
