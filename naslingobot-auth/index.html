@@ -10,14 +10,12 @@
   <p id="codeDisplay" style="margin-top:20px; font-weight:bold;"></p>
 
   <script>
-    // Detectar si hay ?code= en la URL
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     if (code) {
       document.getElementById("codeDisplay").innerText = "Código recibido: " + code;
     }
 
-    // Botón para iniciar sesión
     document.getElementById("authButton").addEventListener("click", () => {
       const client_id = "06e21456c32841059192ce9a15b2b530";
       const redirect_uri = "https://naslingo.github.io/naslingobot-auth";
